@@ -18,48 +18,110 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
 
 ## Prerequisites
 
-- Python 3.7+
-- OpenAI API key
+- A computer running Windows, macOS, or Linux
+- Internet connection
 
 ## Installation
 
-1. Clone the repository:
+1. Install Python:
+   - Visit the official Python website: https://www.python.org/downloads/
+   - Download the latest version of Python for your operating system
+   - Run the installer and follow the installation wizard
+   - Make sure to check the box that says "Add Python to PATH" during installation
+
+2. Install Git:
+   - Visit the official Git website: https://git-scm.com/downloads
+   - Download the appropriate version for your operating system
+   - Run the installer and follow the installation wizard, using the default settings
+
+3. Open a terminal or command prompt:
+   - On Windows: Press Win + R, type "cmd", and press Enter
+   - On macOS: Press Cmd + Space, type "Terminal", and press Enter
+   - On Linux: Press Ctrl + Alt + T
+
+4. Clone the repository:
+   - In the terminal, type the following command and press Enter:
+     ```bash
+     git clone https://github.com/airobinnet/charlie-recall.git
+     ```
+   - This will create a new folder called "charlie-recall" in your current directory
+
+5. Navigate to the project folder:
    ```bash
-   git clone https://github.com/airobinnet/charlie-recall.git
    cd charlie-recall
    ```
 
-2. Create a virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-   ```
+6. Create a virtual environment:
+   - A virtual environment is a self-contained directory that contains a Python installation for a particular version of Python, plus a number of additional packages. It's used to keep the dependencies required by different projects separate.
+   - In the terminal or command prompt, type the following command and press Enter:
+     ```bash
+     python -m venv venv
+     ```
+   - This creates a new folder called "venv" in your project directory, which contains a separate Python installation
 
-3. Install the required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
+7. Activate the virtual environment:
+   - Activating the virtual environment ensures that you're using the Python installation and packages specific to this project, avoiding conflicts with other Python projects on your system.
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - On macOS and Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+   - After activation, you should see "(venv)" at the beginning of your command prompt, indicating that the virtual environment is active
 
-4. Create a `.env` file in the project root and add your OpenAI API key:
-   ```bash
-   OPENAI_API_KEY=your_api_key_here
-   BASE_PATH=/path/to/store/screenshots
-   ```
+8. Install the required packages:
+   - Make sure you're still in the charlie-recall folder and your virtual environment is activated
+   - In the terminal or command prompt, type the following command and press Enter:
+     ```bash
+     pip install -r requirements.txt
+     ```
+   - This command reads the requirements.txt file in the project folder and installs all the necessary packages
+   - The installation process may take a few minutes, depending on your internet connection
+   - You'll see a lot of text scrolling by as packages are downloaded and installed
+   - Wait until the process is complete and you see the command prompt again
+
+9. Create a `.env` file:
+   - Open a text editor (like Notepad on Windows or TextEdit on macOS)
+   - Create a new file and add the following lines:
+     ```bash
+     OPENAI_API_KEY=your_api_key_here
+     BASE_PATH=/path/to/store/screenshots
+     ```
+   - Replace `your_api_key_here` with your actual OpenAI API key
+   - Replace `/path/to/store/screenshots` with the full path where you want to store screenshots
+   - Save the file as `.env` in the charlie-recall folder
 
 ## Usage
 
 1. Start the application:
-   ```bash
-   python main.py
-   ```
+   - Make sure you're in the charlie-recall folder and your virtual environment is activated
+   - Run the following command:
+     ```bash
+     python main.py
+     ```
 
-2. The application will automatically open in your default web browser. If it doesn't, navigate to `http://localhost:5001` in your browser.
+2. The application should automatically open in your default web browser. If it doesn't:
+   - Open your web browser
+   - Navigate to `http://localhost:5001`
 
-3. Use the "Start Capturing" and "Stop Capturing" buttons to control the screenshot capture process.
+3. Using the application:
+   - Click the "Start Capturing" button to begin taking screenshots
+   - Click the "Stop Capturing" button to pause the screenshot process
+   - Use the "Settings" button to adjust the capture interval
+   - Click the "Search" button to open the search page and review captured screenshots
 
-4. Adjust the capture interval in the Settings modal.
+4. To stop the application:
+   - Go back to the terminal or command prompt
+   - Press Ctrl + C to stop the Python script
+   - Deactivate the virtual environment by typing:
+     ```bash
+     deactivate
+     ```
+   - This returns you to your system's default Python environment
 
-5. Use the Search page to find and review captured screenshots.
+If you encounter any issues during installation or usage, please check the project's issue tracker on GitHub or seek help from the community.
 
 ## Contributing
 
