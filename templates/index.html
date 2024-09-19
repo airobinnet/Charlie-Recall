@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Stream</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <div class="container mx-auto px-4 py-4 flex-grow flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">Screenshot Stream</h1>
+            <div>
+                <button id="settingsBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded mr-2">Settings</button>
+                <a href="/search_page" class="bg-green-600 text-white font-bold py-2 px-4 rounded">Search</a>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-grow">
+            <div class="col-span-2 flex flex-col">
+                <div class="bg-white rounded-lg shadow-md p-4 mb-4 flex-grow">
+                    <h2 class="text-lg font-semibold mb-2">Latest Screenshot</h2>
+                    <img id="screenshot" src="{{ last_screenshot }}" alt="Latest screenshot" class="w-full h-64 object-cover mb-2 rounded">
+                    <div class="mt-4">
+                        <h3 class="text-md font-semibold mb-1">Description:</h3>
+                        <p id="description" class="text-sm text-gray-700">{{ last_description[:200] }}{% if last_description|length > 200 %}...{% endif %}</p>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-md font-semibold mb-1">OCR:</h3>
+                        <p id="ocr" class="text-sm text-gray-700">{{ last_ocr[:200] }}{% if last_ocr|length > 200 %}...{% endif %}</p>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-md font-semibold mb-1">Keywords:</h3>
+                        <p id="keywords" class="text-sm text-gray-700">{{ last_keywords|join(', ') }}</p>
+                    </div>
+                </div>
+                <div class="flex space-x-4 mb-4">
+                    <button id="startBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded flex-grow">Start Capturing</button>
+                    <button id="stopBtn" class="bg-red-600 text-white font-bold py-2 px-4 rounded flex-grow">Stop Capturing</button>
+                </div>
+                <div id="captureStatus" class="text-center font-bold text-lg mb-4">
+                    Status: <span id="statusText" class="text-yellow-600">Idle</span>
+                </div>
+            </div>
+            <div>
+                <div class="bg-white rounded-lg shadow-md p-4 h-full overflow-y-auto">
+                    <h2 class="text-lg font-semibold mb-2">Recent Screenshots</h2>
+                    <ul id="recentScreenshots" class="space-y-2">
+                        {% for screenshot in recent_screenshots %}
+                        <li class="flex items-center">
+                            <img src="{{ screenshot.path }}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                            <div>
+                                <p class="text-xs font-semibold">{{ screenshot.timestamp }}</p>
+                                <p class="text-xs text-gray-600 truncate">{{ screenshot.description[:30] }}...</p>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Settings</h3>
+                <div class="mt-2 px-7 py-3">
+                    <label for="captureInterval" class="block text-sm font-medium text-gray-700">Capture Interval (seconds)</label>
+                    <input type="number" id="captureInterval" name="captureInterval" min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="saveSettings" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        Save Settings
+                    </button>
+                    <button id="closeSettings" class="mt-3 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+        var isCapturing = false;
+
+        socket.on('stream', function(data) {
+            document.getElementById('screenshot').src = 'data:image/png;base64,' + data.image;
+            
+            // Add the new screenshot to the recent screenshots list
+            var recentList = document.getElementById('recentScreenshots');
+            var newItem = document.createElement('li');
+            newItem.className = 'flex items-center';
+            newItem.innerHTML = `
+                <img src="data:image/png;base64,${data.image}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                <div>
+                    <p class="text-xs font-semibold">${new Date().toLocaleString()}</p>
+                    <p class="text-xs text-gray-600 truncate">New screenshot</p>
+                </div>
+            `;
+            recentList.insertBefore(newItem, recentList.firstChild);
+            
+            // Remove the oldest screenshot if there are more than 5
+            if (recentList.children.length > 5) {
+                recentList.removeChild(recentList.lastChild);
+            }
+        });
+
+        socket.on('text', function(data) {
+            var descriptionEl = document.getElementById('description');
+            var ocrEl = document.getElementById('ocr');
+            var keywordsEl = document.getElementById('keywords');
+
+            var parts = data.message.split('\nOCR:');
+            var description = parts[0].replace('Description:', '').trim();
+            var ocr = parts[1] ? parts[1].trim() : 'No OCR data available';
+
+            descriptionEl.textContent = description.length > 400 ? description.substring(0, 400) + '...' : description;
+            ocrEl.textContent = ocr.length > 400 ? ocr.substring(0, 400) + '...' : ocr;
+            keywordsEl.textContent = data.keywords.join(', ');
+        });
+
+        function updateCaptureStatus(status) {
+            isCapturing = status;
+            var statusText = document.getElementById('statusText');
+            if (isCapturing) {
+                statusText.textContent = 'Capturing';
+                statusText.className = 'text-green-600';
+            } else {
+                statusText.textContent = 'Stopped';
+                statusText.className = 'text-red-600';
+            }
+        }
+
+        $(document).ready(function() {
+            $('#startBtn').click(function() {
+                $.get('/resume', function(data) {
+                    console.log('Capturing started');
+                    updateCaptureStatus(true);
+                });
+            });
+
+            $('#stopBtn').click(function() {
+                $.get('/stop', function(data) {
+                    console.log('Capturing stopped');
+                    updateCaptureStatus(false);
+                });
+            });
+
+            $('#settingsBtn').click(function() {
+                $('#settingsModal').removeClass('hidden');
+            });
+
+            $('#closeSettings').click(function() {
+                $('#settingsModal').addClass('hidden');
+            });
+
+            $('#saveSettings').click(function() {
+                var interval = $('#captureInterval').val();
+                $.ajax({
+                    url: '/set_interval',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ interval: parseInt(interval) }),
+                    success: function(response) {
+                        if (response.status === 'interval updated') {
+                            alert('Settings saved successfully');
+                            $('#settingsModal').addClass('hidden');
+                        } else {
+                            alert('Failed to save settings');
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred while saving settings');
+                    }
+                });
+            });
+
+            // Load current capture interval when opening settings
+            $('#settingsBtn').click(function() {
+                $.get('/get_interval', function(data) {
+                    $('#captureInterval').val(data.interval);
+                });
+            });
+
+            // Check initial capture status
+            $.get('/get_status', function(data) {
+                updateCaptureStatus(data.is_capturing);
+            });
+        });
+    </script>
+</body>
+</html>

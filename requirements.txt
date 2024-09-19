@@ -1,0 +1,12 @@
+flask
+flask_socketio
+pillow
+tokenizers
+opencv-python
+openai
+python-dotenv
+requests
+chromadb
+easyocr
+PyQt5
+eventlet
