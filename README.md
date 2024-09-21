@@ -94,7 +94,7 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
      BASE_PATH=/path/to/store/screenshots
      ```
    - Replace `your_api_key_here` with your actual OpenAI API key
-   - Replace `/path/to/store/screenshots` with the full path where you want to store screenshots
+   - Replace `/path/to/store/screenshots` with the full path where you want to store screenshots (e.g. `C:\\Users\\CharlieRecall`)
    - Save the file as `.env` in the charlie-recall folder
 
 ## Usage

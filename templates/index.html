@@ -49,7 +49,9 @@
                     <ul id="recentScreenshots" class="space-y-2">
                         {% for screenshot in recent_screenshots %}
                         <li class="flex items-center">
-                            <img src="{{ screenshot.path }}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                            <a href="{{ screenshot.path }}" target="_blank">
+                                <img src="{{ screenshot.path }}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                            </a>
                             <div>
                                 <p class="text-xs font-semibold">{{ screenshot.timestamp }}</p>
                                 <p class="text-xs text-gray-600 truncate">{{ screenshot.description[:30] }}...</p>
@@ -95,7 +97,9 @@
             var newItem = document.createElement('li');
             newItem.className = 'flex items-center';
             newItem.innerHTML = `
-                <img src="data:image/png;base64,${data.image}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                <a href="data:image/png;base64,${data.image}" target="_blank">
+                    <img src="data:image/png;base64,${data.image}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                </a>
                 <div>
                     <p class="text-xs font-semibold">${new Date().toLocaleString()}</p>
                     <p class="text-xs text-gray-600 truncate">New screenshot</p>
@@ -118,8 +122,8 @@
             var description = parts[0].replace('Description:', '').trim();
             var ocr = parts[1] ? parts[1].trim() : 'No OCR data available';
 
-            descriptionEl.textContent = description.length > 400 ? description.substring(0, 400) + '...' : description;
-            ocrEl.textContent = ocr.length > 400 ? ocr.substring(0, 400) + '...' : ocr;
+            descriptionEl.textContent = description.length > 500 ? description.substring(0, 500) + '...' : description;
+            ocrEl.textContent = ocr.length > 500 ? ocr.substring(0, 500) + '...' : ocr;
             keywordsEl.textContent = data.keywords.join(', ');
         });
 
@@ -190,6 +194,45 @@
             $.get('/get_status', function(data) {
                 updateCaptureStatus(data.is_capturing);
             });
+
+            // Refresh latest data every 10 seconds
+            function refreshLatestData() {
+                $.ajax({
+                    url: '/get_latest_data',
+                    type: 'GET',
+                    success: function(data) {
+                        // Update the latest screenshot
+                        $('#screenshot').attr('src', data.last_screenshot + '?t=' + new Date().getTime());
+
+                        // Update the description, OCR, and keywords
+                        $('#description').text(data.last_description.substring(0, 500));
+                        $('#ocr').text(data.last_ocr.substring(0, 500));
+                        $('#keywords').text(data.last_keywords.join(', ').substring(0, 500));
+
+                        // Update recent screenshots
+                        var recentList = $('#recentScreenshots');
+                        recentList.empty();
+                        data.recent_screenshots.forEach(function(screenshot) {
+                            var listItem = `
+                            <li class="flex items-center">
+                                <a href="${screenshot.path}" target="_blank">
+                                    <img src="${screenshot.path}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                                </a>
+                                <div>
+                                    <p class="text-xs font-semibold">${screenshot.timestamp}</p>
+                                    <p class="text-xs text-gray-600 truncate">${screenshot.description}</p>
+                                </div>
+                            </li>`;
+                            recentList.append(listItem);
+                        });
+                    },
+                    error: function(error) {
+                        console.log('Error fetching latest data:', error);
+                    }
+                });
+            }
+
+            setInterval(refreshLatestData, 10000);
         });
     </script>
 </body>
