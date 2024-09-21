@@ -27,7 +27,7 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
    - Visit the official Python website: https://www.python.org/downloads/
    - Download the latest version of Python for your operating system
    - Run the installer and follow the installation wizard
-   - Make sure to check the box that says "Add Python to PATH" during installation
+   - Make sure to check the box that says "Add Python to PATH" during installation (not on all systems present)
 
 2. Install Git:
    - Visit the official Git website: https://git-scm.com/downloads
@@ -53,9 +53,11 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
 
 6. Create a virtual environment:
    - A virtual environment is a self-contained directory that contains a Python installation for a particular version of Python, plus a number of additional packages. It's used to keep the dependencies required by different projects separate.
-   - In the terminal or command prompt, type the following command and press Enter:
+   - In the terminal or command prompt, type one of the following commands and press Enter:
      ```bash
      python -m venv venv
+     # or
+     py -m venv venv
      ```
    - This creates a new folder called "venv" in your project directory, which contains a separate Python installation
 
@@ -64,6 +66,8 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
    - On Windows:
      ```bash
      venv\Scripts\activate
+     # or
+     .\venv\Scripts\activate
      ```
    - On macOS and Linux:
      ```bash
@@ -97,9 +101,11 @@ Charlie Recall is a Flask-based web application that captures desktop screenshot
 
 1. Start the application:
    - Make sure you're in the charlie-recall folder and your virtual environment is activated
-   - Run the following command:
+   - Run one of the following commands:
      ```bash
      python main.py
+     # or
+     py main.py
      ```
 
 2. The application should automatically open in your default web browser. If it doesn't:
