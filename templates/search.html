@@ -63,11 +63,11 @@
         {% if entries %}
             <div class="mt-8 flex justify-center">
                 {% if page > 1 %}
-                    <a href="{{ url_for('search_page', page=page-1, sort_by=sort_by, sort_order=sort_order) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Previous</a>
+                    <a href="{{ url_for('search_page', page=page-1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Previous</a>
                 {% endif %}
                 <span class="mx-2 px-4 py-2 bg-gray-200 rounded">Page {{ page }} of {{ total_pages }}</span>
                 {% if page < total_pages %}
-                    <a href="{{ url_for('search_page', page=page+1, sort_by=sort_by, sort_order=sort_order) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Next</a>
+                    <a href="{{ url_for('search_page', page=page+1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Next</a>
                 {% endif %}
             </div>
         {% endif %}
@@ -104,174 +104,202 @@
         </div>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900">Edit Entry</h3>
+            <form id="editForm">
+                <input type="hidden" id="editEntryId">
+                <div class="mt-2">
+                    <label for="editSubject" class="block text-sm font-medium text-gray-700">Subject</label>
+                    <input type="text" id="editSubject" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mt-2">
+                    <label for="editCombinedText" class="block text-sm font-medium text-gray-700">Combined Text</label>
+                    <textarea id="editCombinedText" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button type="button" class="close-modal mr-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-md">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900">Delete Entry</h3>
+            <p class="mt-2 text-sm text-gray-500">Are you sure you want to delete this entry? This action cannot be undone.</p>
+            <form id="deleteForm">
+                <input type="hidden" id="deleteEntryId">
+                <div class="mt-4 flex justify-end">
+                    <button type="button" class="close-modal mr-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-md">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-md">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         $(document).ready(function() {
-            $('#searchForm').on('submit', function(event) {
-                event.preventDefault();
-                var query = $('#query').val();
+            function loadResults(url, pushState = true) {
                 $.ajax({
-                    url: '/search',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ query: query }),
+                    url: url,
+                    type: 'GET',
                     success: function(response) {
-                        $('#results').empty();
-                        if (response.results.length > 0) {
-                            response.results.forEach(function(result) {
-                                var resultDiv = $('<div></div>').addClass('bg-white rounded-lg shadow-md p-6');
-                                var timestamp = $('<p></p>').addClass('text-sm text-gray-600').text('Timestamp: ' + result.timestamp);
-                                var subject = $('<p></p>').addClass('mt-2 font-semibold').text('Subject: ' + result.subject);
-                                var combined_text = $('<p></p>').addClass('mt-2 combined-text truncate').text(result.combined_text.substring(0, 100) + '...');
-                                combined_text.attr('data-full-text', result.combined_text);
-                                var keywords = $('<p></p>').addClass('mt-2 text-sm text-gray-700').text('Keywords: ' + result.keywords.join(', '));
-                                var similarity = $('<p></p>').addClass('mt-2 text-sm text-blue-600').text('Similarity: ' + (result.similarity * 100).toFixed(2) + '%');
-                                var screenshotImage = $('<a></a>')
-                                    .attr('href', result.screenshot_path)
-                                    .attr('data-lightbox', 'screenshots')
-                                    .attr('data-title', result.combined_text)
-                                    .append(
-                                        $('<img>').attr('src', result.screenshot_path)
-                                                  .attr('alt', 'Screenshot')
-                                                  .addClass('w-full h-48 object-cover mt-4 rounded')
-                                    );
-                                var buttonsDiv = $('<div></div>').addClass('mt-4 flex justify-between');
-                                var editButton = $('<button></button>').addClass('edit-entry px-4 py-2 bg-yellow-500 text-white rounded').text('Edit');
-                                var deleteButton = $('<button></button>').addClass('delete-entry px-4 py-2 bg-red-500 text-white rounded').text('Delete');
-                                var viewDetailsButton = $('<button></button>').addClass('view-details px-4 py-2 bg-blue-500 text-white rounded').text('View Details');
-                                
-                                buttonsDiv.append(editButton, deleteButton, viewDetailsButton);
-                                resultDiv.append(timestamp, subject, combined_text, keywords, similarity, screenshotImage, buttonsDiv);
-                                $('#results').append(resultDiv);
-                            });
-
-                            // Reattach event handlers for the new elements
-                            $('.view-details').on('click', function() {
-                                var entry = $(this).closest('.bg-white');
-                                var id = entry.data('id');
-                                var timestamp = entry.find('p:first').text();
-                                var combined_text = entry.find('.combined-text').attr('data-full-text');
-                                var subject = entry.find('.subject').text();
-                                var similarity = entry.find('.text-blue-600').text();
-                                var keywords = entry.find('p:contains("Keywords:")').text().replace('Keywords:', '').trim();
-
-                                var [description, ocr] = combined_text.split('\nOCR:');
-                                description = description.replace('Description:', '').trim();
-                                ocr = ocr ? ocr.trim() : 'No OCR data available';
-
-                                $('#modalTimestamp').text(timestamp);
-                                $('#modalSubject').text(subject);
-                                $('#modalDescription').text(description);
-                                $('#modalOCR').text(ocr);
-                                $('#modalKeywords').text(keywords);
-                                $('#modalSimilarity').text(similarity);
-                                $('#detailsModal').removeClass('hidden');
-                            });
-
-                            $('.edit-entry').on('click', function() {
-                                var entry = $(this).closest('.bg-white');
-                                var id = entry.data('id');
-                                var subject = entry.find('.subject').text().replace('Subject: ', '');
-                                var combined_text = entry.find('.combined-text').text();
-
-                                var new_subject = prompt("Edit subject:", subject);
-                                var new_combined_text = prompt("Edit combined text:", combined_text);
-
-                                if (new_subject !== null && new_combined_text !== null) {
-                                    $.ajax({
-                                        url: '/edit_entry/' + id,
-                                        type: 'POST',
-                                        data: {
-                                            subject: new_subject,
-                                            combined_text: new_combined_text
-                                        },
-                                        success: function(response) {
-                                            if (response.status === 'success') {
-                                                entry.find('.subject').text('Subject: ' + new_subject);
-                                                entry.find('.combined-text').text(new_combined_text);
-                                                alert('Entry updated successfully');
-                                            } else {
-                                                alert('Failed to update entry');
-                                            }
-                                        },
-                                        error: function() {
-                                            alert('An error occurred while updating the entry');
-                                        }
-                                    });
-                                }
-                            });
-
-                            $('.delete-entry').on('click', function() {
-                                var entry = $(this).closest('.bg-white');
-                                var id = entry.data('id');
-
-                                if (confirm('Are you sure you want to delete this entry?')) {
-                                    $.ajax({
-                                        url: '/delete_entry/' + id,
-                                        type: 'POST',
-                                        success: function(response) {
-                                            if (response.status === 'success') {
-                                                entry.remove();
-                                                alert('Entry deleted successfully');
-                                            } else {
-                                                alert('Failed to delete entry');
-                                            }
-                                        },
-                                        error: function() {
-                                            alert('An error occurred while deleting the entry');
-                                        }
-                                    });
-                                }
-                            });
-                        } else {
-                            $('#results').append('<p class="text-center text-gray-600">No results found.</p>');
+                        $('#results').html($(response).find('#results').html());
+                        $('.pagination').html($(response).find('.pagination').html());
+                        if (pushState) {
+                            history.pushState(null, '', url);
                         }
+                        attachEventHandlers();
                     },
                     error: function(error) {
                         console.log('Error:', error);
-                        $('#results').append('<p class="text-center text-red-600">An error occurred while searching. Please try again.</p>');
+                        $('#results').html('<p class="text-center text-red-600">An error occurred while loading results. Please try again.</p>');
                     }
                 });
+            }
+
+            function attachEventHandlers() {
+                $('.pagination a').on('click', function(e) {
+                    e.preventDefault();
+                    loadResults($(this).attr('href'));
+                });
+
+                $('.edit-entry').on('click', function() {
+                    var entry = $(this).closest('.bg-white');
+                    var id = entry.data('id');
+                    var subject = entry.find('.subject').text().replace('Subject: ', '');
+                    var combined_text = entry.find('.combined-text').attr('data-full-text');
+
+                    $('#editModal').removeClass('hidden');
+                    $('#editSubject').val(subject);
+                    $('#editCombinedText').val(combined_text);
+                    $('#editEntryId').val(id);
+                });
+
+                $('.delete-entry').on('click', function() {
+                    var entry = $(this).closest('.bg-white');
+                    var id = entry.data('id');
+
+                    $('#deleteModal').removeClass('hidden');
+                    $('#deleteEntryId').val(id);
+                });
+
+                // View Details button click handler
+                $('.view-details').on('click', function() {
+                    var entry = $(this).closest('.bg-white');
+                    var id = entry.data('id');
+                    var timestamp = entry.find('p:first').text();
+                    var combined_text = entry.find('.combined-text').attr('data-full-text');
+                    var subject = entry.find('.subject').text();
+                    var similarity = entry.find('.text-blue-600').text();
+                    var keywords = entry.find('p:contains("Keywords:")').text().replace('Keywords:', '').trim();
+
+                    var [description, ocr] = combined_text.split('\nOCR:');
+                    description = description.replace('Description:', '').trim();
+                    ocr = ocr ? ocr.trim() : 'No OCR data available';
+
+                    $('#modalTimestamp').text(timestamp);
+                    $('#modalSubject').text(subject);
+                    $('#modalDescription').text(description);
+                    $('#modalOCR').text(ocr);
+                    $('#modalKeywords').text(keywords);
+                    $('#modalSimilarity').text(similarity);
+                    $('#detailsModal').removeClass('hidden');
+                });
+
+                // Close modal button click handler
+                $('#closeModal').on('click', function() {
+                    $('#detailsModal').addClass('hidden');
+                });
+
+                // Close modal when clicking outside
+                $('#detailsModal').on('click', function(e) {
+                    if (e.target === this) {
+                        $(this).addClass('hidden');
+                    }
+                });
+            }
+
+            $('#searchForm').on('submit', function(event) {
+                event.preventDefault();
+                var query = $('#query').val();
+                var sort_by = $('#sort_by').val();
+                var sort_order = $('#sort_order').val();
+                var url = '/search_page?query=' + encodeURIComponent(query) + '&sort_by=' + sort_by + '&sort_order=' + sort_order;
+                loadResults(url);
             });
 
             $('#apply_sort').on('click', function() {
                 var sort_by = $('#sort_by').val();
                 var sort_order = $('#sort_order').val();
-                window.location.href = "{{ url_for('search_page') }}?sort_by=" + sort_by + "&sort_order=" + sort_order;
-            });
-
-            // View Details button click handler
-            $('.view-details').on('click', function() {
-                var entry = $(this).closest('.bg-white');
-                var id = entry.data('id');
-                var timestamp = entry.find('p:first').text();
-                var combined_text = entry.find('.combined-text').attr('data-full-text');
-                var subject = entry.find('.subject').text();
-                var similarity = entry.find('.text-blue-600').text();
-                var keywords = entry.find('p:contains("Keywords:")').text().replace('Keywords:', '').trim();
-
-                var [description, ocr] = combined_text.split('\nOCR:');
-                description = description.replace('Description:', '').trim();
-                ocr = ocr ? ocr.trim() : 'No OCR data available';
-
-                $('#modalTimestamp').text(timestamp);
-                $('#modalSubject').text(subject);
-                $('#modalDescription').text(description);
-                $('#modalOCR').text(ocr);
-                $('#modalKeywords').text(keywords);
-                $('#modalSimilarity').text(similarity);
-                $('#detailsModal').removeClass('hidden');
-            });
-
-            // Close modal button click handler
-            $('#closeModal').on('click', function() {
-                $('#detailsModal').addClass('hidden');
-            });
-
-            // Close modal when clicking outside
-            $('#detailsModal').on('click', function(e) {
-                if (e.target === this) {
-                    $(this).addClass('hidden');
+                var query = $('#query').val();
+                var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order;
+                if (query) {
+                    url += '&query=' + encodeURIComponent(query);
                 }
+                loadResults(url);
+            });
+
+            $('#editForm').on('submit', function(event) {
+                event.preventDefault();
+                var id = $('#editEntryId').val();
+                var subject = $('#editSubject').val();
+                var combined_text = $('#editCombinedText').val();
+
+                $.ajax({
+                    url: '/edit_entry/' + id,
+                    type: 'POST',
+                    data: {
+                        subject: subject,
+                        combined_text: combined_text
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $('#editModal').addClass('hidden');
+                            loadResults(window.location.href, false);
+                        } else {
+                            alert('Failed to update entry');
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred while updating the entry');
+                    }
+                });
+            });
+
+            $('#deleteForm').on('submit', function(event) {
+                event.preventDefault();
+                var id = $('#deleteEntryId').val();
+
+                $.ajax({
+                    url: '/delete_entry/' + id,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $('#deleteModal').addClass('hidden');
+                            loadResults(window.location.href, false);
+                        } else {
+                            alert('Failed to delete entry');
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred while deleting the entry');
+                    }
+                });
+            });
+
+            $('.close-modal').on('click', function() {
+                $(this).closest('.modal').addClass('hidden');
+            });
+
+            attachEventHandlers();
+
+            $(window).on('popstate', function() {
+                loadResults(window.location.href, false);
             });
         });
     </script>

@@ -287,14 +287,27 @@ def search_page():
     per_page = 12
     sort_by = request.args.get('sort_by', 'timestamp')
     sort_order = request.args.get('sort_order', 'desc')
+    query = request.args.get('query', '')
 
-    results = collection.get(
-        include=["metadatas"],
-        where={},
-        limit=1000000  # Set a high limit to get all entries
-    )
+    if query:
+        embedding = generate_embedding(query)
+        results = collection.query(
+            query_embeddings=[embedding],
+            n_results=1000,  # Increase this if you have more entries
+            include=["metadatas", "documents", "distances"]
+        )
+        entries = [
+            {**meta, "similarity": 1 - dist}
+            for meta, dist in zip(results["metadatas"][0], results["distances"][0])
+        ]
+    else:
+        results = collection.get(
+            include=["metadatas"],
+            where={},
+            limit=1000000  # Set a high limit to get all entries
+        )
+        entries = results["metadatas"]
 
-    entries = results["metadatas"]
     entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
 
     total_entries = len(entries)
@@ -308,7 +321,7 @@ def search_page():
     for entry in paginated_entries:
         entry['screenshot_path'] = url_for('download_file', filename=os.path.basename(entry['screenshot_path']))
     
-    return render_template("search.html", entries=paginated_entries, page=page, total_pages=total_pages, sort_by=sort_by, sort_order=sort_order)
+    return render_template("search.html", entries=paginated_entries, page=page, total_pages=total_pages, sort_by=sort_by, sort_order=sort_order, query=query)
 
 
 @app.route("/stop")
