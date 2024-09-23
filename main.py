@@ -21,6 +21,8 @@ from math import ceil
 import easyocr
 import concurrent.futures
 import traceback
+import math
+import shutil
 
 # Load environment variables from .env file
 load_dotenv()
@@ -47,7 +49,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Configure the OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Global variables
 running = True
 
 # Create the chroma_db directory if it doesn't exist
@@ -60,13 +61,11 @@ chroma_client = chromadb.Client(Settings(
 ))
 collection = chroma_client.get_or_create_collection(name="screenshots")
 
-# Add this line near the top of the file, with other global variables
 text_queue = Queue()
 
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
-# Add this global variable
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 def add_to_chroma(embedding, metadata):
@@ -296,25 +295,30 @@ def search_page():
         embedding = generate_embedding(query)
         results = collection.query(
             query_embeddings=[embedding],
-            n_results=1000,  # Increase this if you have more entries
+            n_results=1000,
             include=["metadatas", "documents", "distances"]
         )
         entries = [
             {**meta, "similarity": 1 - dist}
             for meta, dist in zip(results["metadatas"][0], results["distances"][0])
         ]
+        entries.sort(key=lambda x: x["similarity"], reverse=True)
     else:
         results = collection.get(
             include=["metadatas"],
             where={},
-            limit=1000000  # Set a high limit to get all entries
+            limit=1000000
         )
         entries = results["metadatas"]
 
-    entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
+    if sort_by != "similarity":
+        entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
+
+    # Remove entries with missing screenshots
+    entries = [entry for entry in entries if os.path.exists(entry['screenshot_path'])]
 
     total_entries = len(entries)
-    total_pages = ceil(total_entries / per_page)
+    total_pages = math.ceil(total_entries / per_page)
     
     start = (page - 1) * per_page
     end = start + per_page
@@ -324,7 +328,8 @@ def search_page():
     for entry in paginated_entries:
         entry['screenshot_path'] = url_for('download_file', filename=os.path.basename(entry['screenshot_path']))
     
-    return render_template("search.html", entries=paginated_entries, page=page, total_pages=total_pages, sort_by=sort_by, sort_order=sort_order, query=query)
+    return render_template("search.html", entries=paginated_entries, page=page, total_pages=total_pages, 
+                           sort_by=sort_by, sort_order=sort_order, query=query, per_page=per_page)
 
 
 @app.route("/stop")
@@ -357,6 +362,7 @@ def set_interval():
 
 @app.route("/search", methods=["POST"])
 def search():
+    cleanup_database()
     query = request.json.get("query")
     if not query:
         return jsonify({"status": "failed", "message": "Query is required"}), 400
@@ -444,8 +450,63 @@ def delete_entry(entry_id):
     if os.path.exists(screenshot_path):
         os.remove(screenshot_path)
 
-    return jsonify({"status": "success", "message": "Entry deleted successfully"})
+    # Get the current page and query parameters
+    page = request.args.get('page', 1, type=int)
+    query = request.args.get('query', '')
+    sort_by = request.args.get('sort_by', 'timestamp')
+    sort_order = request.args.get('sort_order', 'desc')
 
+    # Recalculate pagination
+    per_page = 12
+    if query:
+        embedding = generate_embedding(query)
+        results = collection.query(
+            query_embeddings=[embedding],
+            n_results=1000,
+            include=["metadatas", "documents", "distances"]
+        )
+        entries = [
+            {**meta, "similarity": 1 - dist}
+            for meta, dist in zip(results["metadatas"][0], results["distances"][0])
+        ]
+        entries.sort(key=lambda x: x["similarity"], reverse=True)
+    else:
+        results = collection.get(
+            include=["metadatas"],
+            where={},
+            limit=1000000
+        )
+        entries = results["metadatas"]
+
+    if sort_by != "similarity":
+        entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
+
+    total_entries = len(entries)
+    total_pages = math.ceil(total_entries / per_page)
+
+    # If the current page is now empty, go to the previous page
+    if page > total_pages:
+        page = max(1, total_pages)
+
+    return jsonify({
+        "status": "success", 
+        "message": "Entry deleted successfully",
+        "new_page": page,
+        "total_pages": total_pages
+    })
+
+def cleanup_database():
+    results = collection.get(
+        include=["metadatas"],
+        where={},
+    )
+
+    for metadata in results["metadatas"]:
+        if not os.path.exists(metadata['screenshot_path']):
+            collection.delete(ids=[metadata['id']])
+            print(f"Removed entry {metadata['id']} from database due to missing screenshot.")
+
+cleanup_database()
 
 @app.route("/get_interval")
 def get_interval():

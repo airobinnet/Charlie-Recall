@@ -62,12 +62,40 @@
         </div>
         {% if entries %}
             <div class="mt-8 flex justify-center">
-                {% if page > 1 %}
-                    <a href="{{ url_for('search_page', page=page-1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Previous</a>
-                {% endif %}
-                <span class="mx-2 px-4 py-2 bg-gray-200 rounded">Page {{ page }} of {{ total_pages }}</span>
-                {% if page < total_pages %}
-                    <a href="{{ url_for('search_page', page=page+1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded">Next</a>
+                {% if total_pages > 1 %}
+                    {% set start_page = [page - 2, 1]|max %}
+                    {% set end_page = [start_page + 4, total_pages]|min %}
+                    {% set start_page = [end_page - 4, 1]|max %}
+
+                    {% if page > 1 %}
+                        <a href="{{ url_for('search_page', page=page-1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-1 px-3 py-2 bg-blue-600 text-white rounded">Previous</a>
+                    {% endif %}
+
+                    {% if start_page > 1 %}
+                        <a href="{{ url_for('search_page', page=1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-1 px-3 py-2 bg-blue-600 text-white rounded">1</a>
+                        {% if start_page > 2 %}
+                            <span class="mx-1 px-3 py-2">...</span>
+                        {% endif %}
+                    {% endif %}
+
+                    {% for p in range(start_page, end_page + 1) %}
+                        {% if p == page %}
+                            <span class="mx-1 px-3 py-2 bg-blue-800 text-white rounded">{{ p }}</span>
+                        {% else %}
+                            <a href="{{ url_for('search_page', page=p, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-1 px-3 py-2 bg-blue-600 text-white rounded">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if end_page < total_pages %}
+                        {% if end_page < total_pages - 1 %}
+                            <span class="mx-1 px-3 py-2">...</span>
+                        {% endif %}
+                        <a href="{{ url_for('search_page', page=total_pages, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-1 px-3 py-2 bg-blue-600 text-white rounded">{{ total_pages }}</a>
+                    {% endif %}
+
+                    {% if page < total_pages %}
+                        <a href="{{ url_for('search_page', page=page+1, sort_by=sort_by, sort_order=sort_order, query=query) }}" class="mx-1 px-3 py-2 bg-blue-600 text-white rounded">Next</a>
+                    {% endif %}
                 {% endif %}
             </div>
         {% endif %}
@@ -276,12 +304,18 @@
                 var id = $('#deleteEntryId').val();
 
                 $.ajax({
-                    url: '/delete_entry/' + id,
+                    url: '/delete_entry/' + id + window.location.search,
                     type: 'POST',
                     success: function(response) {
                         if (response.status === 'success') {
                             $('#deleteModal').addClass('hidden');
-                            loadResults(window.location.href, false);
+                            if (response.new_page !== {{ page }} || response.total_pages !== {{ total_pages }}) {
+                                // Reload the page with the new pagination
+                                window.location.href = '/search_page?page=' + response.new_page + '&sort_by={{ sort_by }}&sort_order={{ sort_order }}&query={{ query }}';
+                            } else {
+                                // Just remove the deleted entry from the current page
+                                $('[data-id="' + id + '"]').remove();
+                            }
                         } else {
                             alert('Failed to delete entry');
                         }
@@ -308,7 +342,8 @@
                 if (!query) {
                     var sort_by = $('#sort_by').val();
                     var sort_order = $('#sort_order').val();
-                    var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order;
+                    var page = $('#page').val();
+                    var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order + '&page=' +  page ;
                     loadResults(url, false);
                 }
             }
