@@ -72,8 +72,12 @@
             <div class="mt-3">
                 <h3 class="text-lg leading-6 font-medium text-gray-900">Settings</h3>
                 <div class="mt-2 px-7 py-3">
-                    <label for="captureInterval" class="block text-sm font-medium text-gray-700">Capture Interval (seconds)</label>
-                    <input type="number" id="captureInterval" name="captureInterval" min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <label for="captureIntervalMinutes" class="block text-sm font-medium text-gray-700">Capture Interval</label>
+                    <div class="flex items-center mt-1">
+                        <input type="number" id="captureIntervalMinutes" name="captureIntervalMinutes" min="0" class="w-20 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Min">
+                        <span class="mx-2">:</span>
+                        <input type="number" id="captureIntervalSeconds" name="captureIntervalSeconds" min="0" max="59" class="w-20 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Sec">
+                    </div>
                 </div>
                 <div class="items-center px-4 py-3">
                     <button id="saveSettings" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
@@ -179,12 +183,14 @@
             });
 
             $('#saveSettings').click(function() {
-                var interval = $('#captureInterval').val();
+                var minutes = parseInt($('#captureIntervalMinutes').val()) || 0;
+                var seconds = parseInt($('#captureIntervalSeconds').val()) || 0;
+                var interval = minutes * 60 + seconds;
                 $.ajax({
                     url: '/set_interval',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ interval: parseInt(interval) }),
+                    data: JSON.stringify({ interval: interval }),
                     success: function(response) {
                         if (response.status === 'interval updated') {
                             alert('Settings saved successfully');
@@ -202,7 +208,10 @@
             // Load current capture interval when opening settings
             $('#settingsBtn').click(function() {
                 $.get('/get_interval', function(data) {
-                    $('#captureInterval').val(data.interval);
+                    var minutes = Math.floor(data.interval / 60);
+                    var seconds = data.interval % 60;
+                    $('#captureIntervalMinutes').val(minutes);
+                    $('#captureIntervalSeconds').val(seconds);
                 });
             });
 
@@ -253,6 +262,13 @@
             }
 
             setInterval(refreshLatestData, 10000);
+
+            // Close modals with Esc key
+            $(document).keydown(function(e) {
+                if (e.key === "Escape") {
+                    $('.modal').addClass('hidden');
+                }
+            });
         });
     </script>
 </body>

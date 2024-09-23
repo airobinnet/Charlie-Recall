@@ -379,6 +379,15 @@
                     $('#sort_order').prop('disabled', false);
                 }
             }
+
+            // Close modals with Esc key
+            $(document).keydown(function(e) {
+                if (e.key === "Escape") {
+                    $('#detailsModal').addClass('hidden');
+                    $('#editModal').addClass('hidden');
+                    $('#deleteModal').addClass('hidden');
+                }
+            });
         });
     </script>
 </body>

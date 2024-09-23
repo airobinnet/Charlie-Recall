@@ -127,7 +127,7 @@ def perform_ocr(image_path):
 
 def capture_images():
     global capture_interval, running
-    last_capture_time = 0
+    last_capture_time = time.time()  # Initialize with current time
     while running:
         try:
             current_time = time.time()
@@ -357,7 +357,7 @@ def resume():
 def set_interval():
     global capture_interval
     interval = request.json.get("interval")
-    if interval:
+    if interval is not None and interval >= 1:
         capture_interval = interval
         return jsonify({"status": "interval updated", "interval": capture_interval})
     return jsonify({"status": "failed", "message": "Invalid interval"}), 400
