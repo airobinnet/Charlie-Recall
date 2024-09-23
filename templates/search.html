@@ -18,7 +18,7 @@
         </div>
         <form id="searchForm" class="mb-8">
             <div class="flex">
-                <input type="text" id="query" placeholder="Enter your search query" 
+                <input type="text" id="query" autocomplete="off" placeholder="Enter your search query" 
                        class="flex-grow px-4 py-2 rounded-l-lg border-t border-b border-l text-gray-800 border-gray-200 bg-white">
                 <button type="submit" class="px-8 rounded-r-lg bg-blue-600 text-white font-bold p-4 uppercase border-blue-600 border-t border-b border-r">Search</button>
             </div>
@@ -27,10 +27,11 @@
             <div>
                 <label for="sort_by">Sort by:</label>
                 <select id="sort_by" class="px-2 py-1 rounded border">
+                    <option value="similarity" {% if sort_by == 'similarity' %}selected{% endif %}>Similarity</option>
                     <option value="timestamp" {% if sort_by == 'timestamp' %}selected{% endif %}>Timestamp</option>
                     <option value="subject" {% if sort_by == 'subject' %}selected{% endif %}>Subject</option>
                 </select>
-                <select id="sort_order" class="px-2 py-1 rounded border">
+                <select id="sort_order" class="px-2 py-1 rounded border" {% if sort_by == 'similarity' %}disabled{% endif %}>
                     <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
                     <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
                 </select>
@@ -171,6 +172,9 @@
 
     <script>
         $(document).ready(function() {
+            var currentPage = {{ page }};
+            var currentQuery = '{{ query }}';
+
             function loadResults(url, pushState = true) {
                 $.ajax({
                     url: url,
@@ -181,6 +185,9 @@
                         if (pushState) {
                             history.pushState(null, '', url);
                         }
+                        // Update the current page number
+                        var urlParams = new URLSearchParams(url.split('?')[1]);
+                        currentPage = urlParams.get('page') || 1;
                         attachEventHandlers();
                     },
                     error: function(error) {
@@ -268,6 +275,8 @@
                 var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order;
                 if (query) {
                     url += '&query=' + encodeURIComponent(query);
+                    // Force sort_by to be 'similarity' and sort_order to be 'desc' when there's a query
+                    url = url.replace('sort_by=' + sort_by, 'sort_by=similarity').replace('sort_order=' + sort_order, 'sort_order=desc');
                 }
                 loadResults(url);
             });
@@ -309,13 +318,14 @@
                     success: function(response) {
                         if (response.status === 'success') {
                             $('#deleteModal').addClass('hidden');
-                            if (response.new_page !== {{ page }} || response.total_pages !== {{ total_pages }}) {
-                                // Reload the page with the new pagination
-                                window.location.href = '/search_page?page=' + response.new_page + '&sort_by={{ sort_by }}&sort_order={{ sort_order }}&query={{ query }}';
-                            } else {
-                                // Just remove the deleted entry from the current page
-                                $('[data-id="' + id + '"]').remove();
-                            }
+                            // if (response.new_page !== {{ page }} || response.total_pages !== {{ total_pages }}) {
+                            //     // Reload the page with the new pagination
+                            //     window.location.href = '/search_page?page=' + response.new_page + '&sort_by={{ sort_by }}&sort_order={{ sort_order }}&query={{ query }}';
+                            // } else {
+                            //     // Just remove the deleted entry from the current page
+                            //     $('[data-id="' + id + '"]').remove();
+                            // }
+                            window.location.href = '/search_page?page=' + response.new_page + '&sort_by={{ sort_by }}&sort_order={{ sort_order }}&query={{ query }}';
                         } else {
                             alert('Failed to delete entry');
                         }
@@ -342,13 +352,33 @@
                 if (!query) {
                     var sort_by = $('#sort_by').val();
                     var sort_order = $('#sort_order').val();
-                    var page = $('#page').val();
-                    var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order + '&page=' +  page ;
+                    var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order + '&page=' + currentPage + '&query=' + currentQuery;
                     loadResults(url, false);
                 }
             }
 
             setInterval(refreshSearchPage, 10000);
+
+            $('#sort_by').on('change', function() {
+                if ($(this).val() === 'similarity' || currentQuery) {
+                    $('#sort_order').val('desc').prop('disabled', true);
+                } else {
+                    $('#sort_order').prop('disabled', false);
+                }
+            });
+
+            // Initial setup of sort controls
+            if (currentQuery) {
+                $('#sort_by').val('similarity').prop('disabled', true);
+                $('#sort_order').val('desc').prop('disabled', true);
+            } else {
+                $('#sort_by').prop('disabled', false);
+                if ($('#sort_by').val() === 'similarity') {
+                    $('#sort_order').val('desc').prop('disabled', true);
+                } else {
+                    $('#sort_order').prop('disabled', false);
+                }
+            }
         });
     </script>
 </body>

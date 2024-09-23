@@ -287,7 +287,7 @@ def serve_image(filename):
 def search_page():
     page = request.args.get('page', 1, type=int)
     per_page = 12
-    sort_by = request.args.get('sort_by', 'timestamp')
+    sort_by = request.args.get('sort_by', 'similarity')
     sort_order = request.args.get('sort_order', 'desc')
     query = request.args.get('query', '')
 
@@ -303,6 +303,8 @@ def search_page():
             for meta, dist in zip(results["metadatas"][0], results["distances"][0])
         ]
         entries.sort(key=lambda x: x["similarity"], reverse=True)
+        sort_by = 'similarity'  # Force sort_by to be 'similarity' when there's a query
+        sort_order = 'desc'  # Force sort_order to be 'desc' for similarity
     else:
         results = collection.get(
             include=["metadatas"],
@@ -310,12 +312,11 @@ def search_page():
             limit=1000000
         )
         entries = results["metadatas"]
+        if sort_by == "similarity":
+            sort_by = "timestamp"  # Default to timestamp if no query (similarity doesn't apply)
 
-    if sort_by != "similarity":
-        entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
-
-    # Remove entries with missing screenshots
-    entries = [entry for entry in entries if os.path.exists(entry['screenshot_path'])]
+        if sort_by != "similarity":
+            entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
 
     total_entries = len(entries)
     total_pages = math.ceil(total_entries / per_page)
@@ -327,6 +328,8 @@ def search_page():
     
     for entry in paginated_entries:
         entry['screenshot_path'] = url_for('download_file', filename=os.path.basename(entry['screenshot_path']))
+        if 'similarity' not in entry:
+            entry['similarity'] = 0  # Add a default similarity for non-search results
     
     return render_template("search.html", entries=paginated_entries, page=page, total_pages=total_pages, 
                            sort_by=sort_by, sort_order=sort_order, query=query, per_page=per_page)
