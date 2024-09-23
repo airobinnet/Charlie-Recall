@@ -280,6 +280,9 @@ def index():
                            last_keywords=last_keywords,
                            recent_screenshots=recent_screenshots)
 
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    return send_from_directory(os.path.join(app.root_path, 'images'), filename)
 
 @app.route("/search_page")
 def search_page():
@@ -423,7 +426,24 @@ def edit_entry(entry_id):
 
 @app.route("/delete_entry/<string:entry_id>", methods=["POST"])
 def delete_entry(entry_id):
+    results = collection.get(
+        ids=[entry_id],
+        include=["metadatas"]
+    )
+
+    if not results["ids"]:
+        return jsonify({"status": "failed", "message": "Entry not found"}), 404
+
+    metadata = results["metadatas"][0]
+    screenshot_path = metadata["screenshot_path"]
+
+    # Delete the entry from the collection
     collection.delete(ids=[entry_id])
+
+    # Delete the screenshot file
+    if os.path.exists(screenshot_path):
+        os.remove(screenshot_path)
+
     return jsonify({"status": "success", "message": "Entry deleted successfully"})
 
 
@@ -437,6 +457,47 @@ def get_interval():
 def get_status():
     global running
     return jsonify({"is_capturing": running})
+
+
+@app.route("/get_latest_data")
+def get_latest_data():
+    results = collection.get(
+        include=["metadatas"],
+        where={},
+    )
+
+    recent_screenshots = []
+    last_screenshot = None
+    last_description = "No screenshots available"
+    last_ocr = "No OCR data available"
+    last_keywords = []
+
+    if results["metadatas"]:
+        sorted_metadatas = sorted(results["metadatas"], key=lambda x: x["timestamp"], reverse=True)
+        
+        for meta in sorted_metadatas[:5]:
+            recent_screenshots.append({
+                "path": f"/frames/{os.path.basename(meta['screenshot_path'])}",
+                "timestamp": meta["timestamp"],
+                "description": meta["combined_text"][:30] + "..."
+            })
+        
+        last_meta = sorted_metadatas[0]
+        last_screenshot = f"/frames/{os.path.basename(last_meta['screenshot_path'])}"
+        
+        combined_text = last_meta["combined_text"]
+        description, ocr = combined_text.split('\nOCR:', 1)
+        last_description = description.replace('Description:', '').strip()
+        last_ocr = ocr.strip() if ocr else "No OCR data available"
+        last_keywords = last_meta["subject"].split(", ")
+
+    return jsonify({
+        "last_screenshot": last_screenshot,
+        "last_description": last_description,
+        "last_ocr": last_ocr,
+        "last_keywords": last_keywords,
+        "recent_screenshots": recent_screenshots
+    })
 
 
 def signal_handler(sig, frame):

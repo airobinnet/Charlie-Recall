@@ -301,6 +301,19 @@
             $(window).on('popstate', function() {
                 loadResults(window.location.href, false);
             });
+
+            // Refresh search page every 10 seconds if no search is active
+            function refreshSearchPage() {
+                var query = $('#query').val();
+                if (!query) {
+                    var sort_by = $('#sort_by').val();
+                    var sort_order = $('#sort_order').val();
+                    var url = '/search_page?sort_by=' + sort_by + '&sort_order=' + sort_order;
+                    loadResults(url, false);
+                }
+            }
+
+            setInterval(refreshSearchPage, 10000);
         });
     </script>
 </body>

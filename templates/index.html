@@ -21,7 +21,7 @@
             <div class="col-span-2 flex flex-col">
                 <div class="bg-white rounded-lg shadow-md p-4 mb-4 flex-grow">
                     <h2 class="text-lg font-semibold mb-2">Latest Screenshot</h2>
-                    <img id="screenshot" src="{{ last_screenshot }}" alt="Latest screenshot" class="w-full h-64 object-cover mb-2 rounded">
+                    <img id="screenshot" src="{{ last_screenshot or 'images/placeholder.png' }}" alt="Latest screenshot" class="w-full h-64 object-cover mb-2 rounded">
                     <div class="mt-4">
                         <h3 class="text-md font-semibold mb-1">Description:</h3>
                         <p id="description" class="text-sm text-gray-700">{{ last_description[:200] }}{% if last_description|length > 200 %}...{% endif %}</p>
@@ -57,6 +57,8 @@
                                 <p class="text-xs text-gray-600 truncate">{{ screenshot.description[:30] }}...</p>
                             </div>
                         </li>
+                        {% else %}
+                        <li class="text-center text-gray-500">No recent screenshots available</li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -130,28 +132,42 @@
         function updateCaptureStatus(status) {
             isCapturing = status;
             var statusText = document.getElementById('statusText');
+            var startBtn = document.getElementById('startBtn');
+            var stopBtn = document.getElementById('stopBtn');
             if (isCapturing) {
                 statusText.textContent = 'Capturing';
                 statusText.className = 'text-green-600';
+                startBtn.disabled = true;
+                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                stopBtn.disabled = false;
+                stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             } else {
                 statusText.textContent = 'Stopped';
                 statusText.className = 'text-red-600';
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                stopBtn.disabled = true;
+                stopBtn.classList.add('opacity-50', 'cursor-not-allowed');
             }
         }
 
         $(document).ready(function() {
             $('#startBtn').click(function() {
-                $.get('/resume', function(data) {
-                    console.log('Capturing started');
-                    updateCaptureStatus(true);
-                });
+                if (!isCapturing) {
+                    $.get('/resume', function(data) {
+                        console.log('Capturing started');
+                        updateCaptureStatus(true);
+                    });
+                }
             });
 
             $('#stopBtn').click(function() {
-                $.get('/stop', function(data) {
-                    console.log('Capturing stopped');
-                    updateCaptureStatus(false);
-                });
+                if (isCapturing) {
+                    $.get('/stop', function(data) {
+                        console.log('Capturing stopped');
+                        updateCaptureStatus(false);
+                    });
+                }
             });
 
             $('#settingsBtn').click(function() {
@@ -202,7 +218,7 @@
                     type: 'GET',
                     success: function(data) {
                         // Update the latest screenshot
-                        $('#screenshot').attr('src', data.last_screenshot + '?t=' + new Date().getTime());
+                        $('#screenshot').attr('src', data.last_screenshot || 'images/placeholder.png');
 
                         // Update the description, OCR, and keywords
                         $('#description').text(data.last_description.substring(0, 500));
@@ -212,19 +228,23 @@
                         // Update recent screenshots
                         var recentList = $('#recentScreenshots');
                         recentList.empty();
-                        data.recent_screenshots.forEach(function(screenshot) {
-                            var listItem = `
-                            <li class="flex items-center">
-                                <a href="${screenshot.path}" target="_blank">
-                                    <img src="${screenshot.path}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
-                                </a>
-                                <div>
-                                    <p class="text-xs font-semibold">${screenshot.timestamp}</p>
-                                    <p class="text-xs text-gray-600 truncate">${screenshot.description}</p>
-                                </div>
-                            </li>`;
-                            recentList.append(listItem);
-                        });
+                        if (data.recent_screenshots.length > 0) {
+                            data.recent_screenshots.forEach(function(screenshot) {
+                                var listItem = `
+                                <li class="flex items-center">
+                                    <a href="${screenshot.path}" target="_blank">
+                                        <img src="${screenshot.path}" alt="Recent screenshot" class="w-12 h-12 object-cover rounded mr-2">
+                                    </a>
+                                    <div>
+                                        <p class="text-xs font-semibold">${screenshot.timestamp}</p>
+                                        <p class="text-xs text-gray-600 truncate">${screenshot.description}</p>
+                                    </div>
+                                </li>`;
+                                recentList.append(listItem);
+                            });
+                        } else {
+                            recentList.append('<li class="text-center text-gray-500">No recent screenshots available</li>');
+                        }
                     },
                     error: function(error) {
                         console.log('Error fetching latest data:', error);
