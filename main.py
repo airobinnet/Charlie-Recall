@@ -239,6 +239,9 @@ def analyze_subject(encoded_image):
 
 @app.route("/")
 def index():
+    # Clean up the database to remove entries with missing files
+    cleanup_database()
+
     # Get all screenshots
     results = collection.get(
         include=["metadatas"],
@@ -255,25 +258,23 @@ def index():
         # Sort the results by timestamp in descending order
         sorted_metadatas = sorted(results["metadatas"], key=lambda x: x["timestamp"], reverse=True)
 
-        # Remove screenshots with missing files
-        sorted_metadatas = [meta for meta in sorted_metadatas if os.path.exists(meta['screenshot_path'])]
-        
-        # Get the last 5 screenshots
-        for meta in sorted_metadatas[:5]:
-            recent_screenshots.append({
-                "path": f"/frames/{os.path.basename(meta['screenshot_path'])}",
-                "timestamp": meta["timestamp"],
-                "description": meta["combined_text"][:30] + "..."
-            })
-        
-        last_meta = sorted_metadatas[0]
-        last_screenshot = f"/frames/{os.path.basename(last_meta['screenshot_path'])}"
-        
-        combined_text = last_meta["combined_text"]
-        description, ocr = combined_text.split('\nOCR:', 1)
-        last_description = description.replace('Description:', '').strip()
-        last_ocr = ocr.strip() if ocr else "No OCR data available"
-        last_keywords = last_meta["subject"].split(", ")
+        if sorted_metadatas:
+            # Get the last 5 screenshots
+            for meta in sorted_metadatas[:5]:
+                recent_screenshots.append({
+                    "path": f"/frames/{os.path.basename(meta['screenshot_path'])}",
+                    "timestamp": meta["timestamp"],
+                    "description": meta["combined_text"][:30] + "..."
+                })
+
+            last_meta = sorted_metadatas[0]
+            last_screenshot = f"/frames/{os.path.basename(last_meta['screenshot_path'])}"
+
+            combined_text = last_meta["combined_text"]
+            description, ocr = combined_text.split('\nOCR:', 1)
+            last_description = description.replace('Description:', '').strip()
+            last_ocr = ocr.strip() if ocr else "No OCR data available"
+            last_keywords = last_meta["subject"].split(", ")
 
     return render_template("index.html", 
                            last_screenshot=last_screenshot, 
@@ -505,6 +506,7 @@ def delete_entry(entry_id):
     })
 
 def cleanup_database():
+    # Remove entries with missing screenshot files
     results = collection.get(
         include=["metadatas"],
         where={},
@@ -578,6 +580,28 @@ def signal_handler(sig, frame):
 
 
 signal.signal(signal.SIGINT, signal_handler)
+
+@app.route("/delete_all_data", methods=["POST"])
+def delete_all_data():
+    try:
+        # Get all IDs from the collection
+        results = collection.get(include=['ids'])
+        if results['ids']:
+            # Delete all entries from the collection using the retrieved IDs
+            collection.delete(ids=results['ids'])
+
+        # Delete all screenshot files
+        shutil.rmtree(frames_path)
+        os.makedirs(frames_path, exist_ok=True)
+
+        # Clear the text queue
+        with text_queue.mutex:
+            text_queue.queue.clear()
+
+        return jsonify({"status": "success", "message": "All data deleted successfully"})
+    except Exception as e:
+        print(f"Error in delete_all_data: {e}")
+        return jsonify({"status": "failed", "message": "Failed to delete all data"}), 500
 
 if __name__ == "__main__":
     global capture_thread
