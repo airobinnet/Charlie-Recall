@@ -533,6 +533,7 @@ def get_status():
 
 @app.route("/get_latest_data")
 def get_latest_data():
+    cleanup_database()
     results = collection.get(
         include=["metadatas"],
         where={},
@@ -585,8 +586,8 @@ signal.signal(signal.SIGINT, signal_handler)
 def delete_all_data():
     try:
         # Get all IDs from the collection
-        results = collection.get(include=['ids'])
-        if results['ids']:
+        results = collection.get()
+        if results.get('ids'):
             # Delete all entries from the collection using the retrieved IDs
             collection.delete(ids=results['ids'])
 
@@ -603,12 +604,22 @@ def delete_all_data():
         print(f"Error in delete_all_data: {e}")
         return jsonify({"status": "failed", "message": "Failed to delete all data"}), 500
 
+def periodic_cleanup():
+    while running:
+        cleanup_database()
+        time.sleep(60)
+
 if __name__ == "__main__":
     global capture_thread
     running = True
     capture_thread = threading.Thread(target=capture_images)
     capture_thread.start()
     print(f"Capture thread started at {datetime.now()}")
+
+    # Start the periodic cleanup thread
+    cleanup_thread = threading.Thread(target=periodic_cleanup)
+    cleanup_thread.start()
+    print(f"Cleanup thread started at {datetime.now()}")
 
     # Open the default web browser to the server link
     webbrowser.open("http://localhost:5001")
@@ -623,6 +634,7 @@ if __name__ == "__main__":
         print(f"Shutting down at {datetime.now()}")
         running = False
         capture_thread.join()
+        cleanup_thread.join()
         executor.shutdown(wait=True)
         text_queue.put(None)
 
