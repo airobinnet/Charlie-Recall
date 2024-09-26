@@ -254,6 +254,9 @@ def index():
     if results["metadatas"]:
         # Sort the results by timestamp in descending order
         sorted_metadatas = sorted(results["metadatas"], key=lambda x: x["timestamp"], reverse=True)
+
+        # Remove screenshots with missing files
+        sorted_metadatas = [meta for meta in sorted_metadatas if os.path.exists(meta['screenshot_path'])]
         
         # Get the last 5 screenshots
         for meta in sorted_metadatas[:5]:
