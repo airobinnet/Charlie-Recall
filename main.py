@@ -318,6 +318,9 @@ def search_page():
         if sort_by != "similarity":
             entries.sort(key=lambda x: x[sort_by], reverse=(sort_order == 'desc'))
 
+        # Remove entries with missing screenshots
+        entries = [entry for entry in entries if os.path.exists(entry['screenshot_path'])]
+
     total_entries = len(entries)
     total_pages = math.ceil(total_entries / per_page)
     
