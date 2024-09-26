@@ -294,7 +294,8 @@
             // Close modals with Esc key
             $(document).keydown(function(e) {
                 if (e.key === "Escape") {
-                    $('.modal').addClass('hidden');
+                    $('#settingsModal').addClass('hidden');
+                    $('#deleteConfirmationModal').addClass('hidden');
                 }
             });
 
